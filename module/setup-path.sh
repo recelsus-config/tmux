@@ -3,8 +3,11 @@
 
 set -euo pipefail
 
-# Determine and prepend appropriate brew/bin paths without clobbering PATH
-# Handles: macOS (Intel/ARM), Linuxbrew on Linux. No-op if brew not found.
+# -----------------------------------------------------------------------------
+# Overview
+# Determine and prepend appropriate brew/bin paths without clobbering PATH.
+# Handles: macOS (Intel/ARM) and Linuxbrew on Linux. No‑op if brew not found.
+# -----------------------------------------------------------------------------
 
 current_path=${PATH:-}
 os=$(uname -s)
@@ -41,7 +44,9 @@ elif [ "${os}" = "Linux" ]; then
   fi
 fi
 
-# Prepend brew bin if found
+# -----------------------------------------------------------------------------
+# Prepend brew paths if found (bin and sbin)
+# -----------------------------------------------------------------------------
 if [ -n "${brew_bin}" ]; then
   prepend_path_component "${brew_bin}"
   # In case brew prefix provides sbin separately
@@ -49,7 +54,9 @@ if [ -n "${brew_bin}" ]; then
   prepend_path_component "${brew_sbin}"
 fi
 
-# Always ensure standard system paths are available (idempotent)
+# -----------------------------------------------------------------------------
+# Ensure standard system paths are present (idempotent)
+# -----------------------------------------------------------------------------
 prepend_path_component "/usr/local/sbin"
 prepend_path_component "/usr/local/bin"
 prepend_path_component "/usr/sbin"
@@ -57,8 +64,9 @@ prepend_path_component "/usr/bin"
 prepend_path_component "/sbin"
 prepend_path_component "/bin"
 
-# Set into tmux environment for all clients
+# -----------------------------------------------------------------------------
+# Export the computed PATH into tmux's global environment
+# -----------------------------------------------------------------------------
 tmux set-environment -g PATH "${current_path}"
 
 exit 0
-

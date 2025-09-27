@@ -3,11 +3,22 @@
 
 set -euo pipefail
 
+# -----------------------------------------------------------------------------
+# Overview
+# Prints the local IPv4 address and the interface name in a compact form
+# like: "192.168.1.23 [en0]". Supports macOS and Linux. Tries sensible
+# candidates in priority order and falls back gracefully.
+# -----------------------------------------------------------------------------
+
 os=$(uname -s)
 
 ip=""
 device=""
 
+# -----------------------------------------------------------------------------
+# Darwin (macOS): prefer the interface that owns the default route, then Wi‑Fi,
+# then common en* candidates, then any active interface with an inet address.
+# -----------------------------------------------------------------------------
 if [ "${os}" = 'Darwin' ]; then
   # Try the interface that owns the default route first
   device=$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')
@@ -61,6 +72,9 @@ elif [ "${os}" = 'Linux' ]; then
   fi
 fi
 
+# -----------------------------------------------------------------------------
+# Output: print a dash when unknown to keep the status line stable
+# -----------------------------------------------------------------------------
 ip=${ip:--}
 device=${device:--}
 echo "${ip} [${device}]"
