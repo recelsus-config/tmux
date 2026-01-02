@@ -6,7 +6,9 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 # Overview
 # Determine and prepend appropriate brew/bin paths without clobbering PATH.
-# Handles: macOS (Intel/ARM) and Linuxbrew on Linux. No‑op if brew not found.
+# Handles: macOS (Intel/ARM) and Linuxbrew on Linux.
+# Then: if outside tmux, attach to "newest" session by name (numeric > string),
+#       otherwise create a new session. Update tmux PATH only when server exists.
 # -----------------------------------------------------------------------------
 
 current_path=${PATH:-}
@@ -65,8 +67,45 @@ prepend_path_component "/sbin"
 prepend_path_component "/bin"
 
 # -----------------------------------------------------------------------------
-# Export the computed PATH into tmux's global environment
+# If tmux server already exists, export the computed PATH into tmux global env.
+# NOTE: Do NOT start tmux server just for this.
 # -----------------------------------------------------------------------------
-tmux set-environment -g PATH "${current_path}"
+if tmux list-sessions >/dev/null 2>&1; then
+  tmux set-environment -g PATH "${current_path}"
+fi
+
+# -----------------------------------------------------------------------------
+# Session control (outside tmux only):
+# - if sessions exist: attach to the "newest" by name
+#   * numeric-only names: choose max numeric (10 > 9)
+#   * otherwise: choose max lexicographic (z > a)
+# - if no sessions: create new session
+# -----------------------------------------------------------------------------
+if [ -z "${TMUX-}" ]; then
+  if tmux list-sessions >/dev/null 2>&1; then
+    target_session=$(
+      tmux list-sessions -F '#S' |
+        awk '
+          /^[0-9]+$/ { nums[++n]=$0; next }
+          { strs[++s]=$0 }
+          END {
+            if (n > 0) {
+              max=nums[1]
+              for (i=2;i<=n;i++) if (nums[i]+0 > max+0) max=nums[i]
+              print max
+            } else {
+              max=strs[1]
+              for (i=2;i<=s;i++) if (strs[i] > max) max=strs[i]
+              print max
+            }
+          }
+        '
+    )
+    exec tmux attach -t "${target_session}"
+  else
+    exec tmux new
+  fi
+fi
 
 exit 0
+
