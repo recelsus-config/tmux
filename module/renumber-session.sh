@@ -1,21 +1,25 @@
-# vim: ft=sh
 #!/bin/bash
 
-set -u
+set -eu
 
-# -----------------------------------------------------------------------------
-# Overview
-# Renumbers numeric tmux sessions to a dense sequence starting at 0.
-# Named sessions (non‑numeric) are left untouched. This maintains a tidy
-# index order for quick switching via session numbers.
-# -----------------------------------------------------------------------------
+script_name=$(basename "$0")
 
-# Collect numeric session names only, sort ascending
-sessions=$(tmux ls -F '#S' | grep '^[0-9]\+$' | sort)
+# No tmux server / no sessions -> nothing to do
+if ! tmux list-sessions >/dev/null 2>&1; then
+  exit 0
+fi
 
 new_number=0
-for number in $sessions; do
-  # Rename numeric sessions in order: 0,1,2,...
-  tmux rename-session -t "$number" "$new_number"
-  ((new_number+=1))
-done
+
+tmux list-sessions -F '#{session_id} #{session_name}' \
+  | awk '$2 ~ /^[0-9]+$/ { print $1, $2 }' \
+  | sort -k2,2n \
+  | while read -r session_id session_name; do
+      new_name="$new_number"
+
+      if [ "$session_name" != "$new_name" ]; then
+        tmux rename-session -t "$session_id" "$new_name"
+      fi
+
+      new_number=$((new_number + 1))
+    done
